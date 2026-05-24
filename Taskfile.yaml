@@ -1,0 +1,33 @@
+version: "3"
+
+dotenv:
+  - local.env
+
+vars:
+  MIGRATIONS_DIR: ./migrations
+
+tasks:
+  run:dev:
+    desc: Run the app locally
+    cmds:
+      - go run ./cmd
+
+  migration:create:
+    desc: Create new migration
+    cmds:
+      - goose -dir {{.MIGRATIONS_DIR}} create {{.NAME}} sql
+
+  migration:up:
+    desc: Apply migrations
+    cmds:
+      - goose -dir {{.MIGRATIONS_DIR}} postgres "$POSTGRES_DSN" up
+
+  migration:reset:
+    desc: Rollback all migrations
+    cmds:
+      - goose -dir {{.MIGRATIONS_DIR}} postgres "$POSTGRES_DSN" reset
+
+  gen:
+    desc: Generate gorm query and models from db scheme
+    cmds:
+      - go generate
