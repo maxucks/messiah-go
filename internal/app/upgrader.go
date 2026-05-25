@@ -18,7 +18,7 @@ func NewUpgrader(hub *ws.Hub) *WSUpgrader {
 	return &WSUpgrader{hub}
 }
 
-func (u *WSUpgrader) Upgrade(c *echo.Context) error {
+func (self *WSUpgrader) Upgrade(c *echo.Context) error {
 	userId := c.QueryParam("user_id")
 	if userId == "" {
 		c.Logger().Error("user_id is required")
@@ -33,7 +33,7 @@ func (u *WSUpgrader) Upgrade(c *echo.Context) error {
 	}
 
 	ctx := context.Background()
-	client := ws.NewClient(conn, u.hub, userId)
+	client := ws.NewClient(conn, self.hub, userId)
 	client.Listen(ctx)
 
 	return nil

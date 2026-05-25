@@ -2,7 +2,7 @@ package controllers
 
 import (
 	res "app/internal/shared"
-	"app/internal/shared/types"
+	"app/internal/types"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
@@ -20,10 +20,10 @@ type LoadResponse struct {
 	Messages []types.ChatMessage `json:"messages"`
 }
 
-func (cc *ChatController) Load(c *echo.Context) error {
+func (self *ChatController) Load(c *echo.Context) error {
 	ctx := c.Request().Context()
 
-	messages, err := cc.store.Get(ctx)
+	messages, err := self.store.Get(ctx)
 	if err != nil {
 		return res.InternalError(c, err.Error())
 	}
@@ -33,14 +33,14 @@ func (cc *ChatController) Load(c *echo.Context) error {
 	})
 }
 
-func (cc *ChatController) EditMessage(c *echo.Context) error {
+func (self *ChatController) EditMessage(c *echo.Context) error {
 	ctx := c.Request().Context()
 
 	// TODO:
 	var id uuid.UUID
 	content := "edited"
 
-	err := cc.store.Edit(ctx, id, content)
+	err := self.store.Edit(ctx, id, content)
 	if err != nil {
 		return res.InternalError(c, err.Error())
 	}
@@ -48,13 +48,13 @@ func (cc *ChatController) EditMessage(c *echo.Context) error {
 	return res.NoContent(c)
 }
 
-func (cc *ChatController) DeleteMessage(c *echo.Context) error {
+func (self *ChatController) DeleteMessage(c *echo.Context) error {
 	ctx := c.Request().Context()
 
 	// TODO:
 	var id uuid.UUID
 
-	err := cc.store.Delete(ctx, id)
+	err := self.store.Delete(ctx, id)
 	if err != nil {
 		return res.InternalError(c, err.Error())
 	}

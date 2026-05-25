@@ -1,7 +1,7 @@
 package store
 
 import (
-	"app/internal/shared/types"
+	"app/internal/types"
 	"context"
 
 	"github.com/google/uuid"
@@ -16,10 +16,10 @@ func NewMessages(db *bun.DB) *Messages {
 	return &Messages{db}
 }
 
-func (e *Messages) Get(ctx context.Context) ([]types.ChatMessage, error) {
+func (self *Messages) Get(ctx context.Context) ([]types.ChatMessage, error) {
 	var messages []types.ChatMessage
 
-	err := e.db.NewSelect().Model(&messages).Scan(ctx)
+	err := self.db.NewSelect().Model(&messages).Scan(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -27,10 +27,10 @@ func (e *Messages) Get(ctx context.Context) ([]types.ChatMessage, error) {
 	return messages, nil
 }
 
-func (e *Messages) Add(ctx context.Context, content string) error {
+func (self *Messages) Add(ctx context.Context, content string) error {
 	msg := types.ChatMessage{Content: content}
 
-	_, err := e.db.NewInsert().Model(&msg).Exec(ctx)
+	_, err := self.db.NewInsert().Model(&msg).Exec(ctx)
 	if err != nil {
 		return err
 	}
@@ -38,13 +38,13 @@ func (e *Messages) Add(ctx context.Context, content string) error {
 	return nil
 }
 
-func (e *Messages) Edit(ctx context.Context, id uuid.UUID, content string) error {
+func (self *Messages) Edit(ctx context.Context, id uuid.UUID, content string) error {
 	msg := types.ChatMessage{
 		ID:      id,
 		Content: content,
 	}
 
-	_, err := e.db.NewUpdate().Model(&msg).Column("content").WherePK().Exec(ctx)
+	_, err := self.db.NewUpdate().Model(&msg).Column("content").WherePK().Exec(ctx)
 	if err != nil {
 		return err
 	}
@@ -52,10 +52,10 @@ func (e *Messages) Edit(ctx context.Context, id uuid.UUID, content string) error
 	return nil
 }
 
-func (e *Messages) Delete(ctx context.Context, id uuid.UUID) error {
+func (self *Messages) Delete(ctx context.Context, id uuid.UUID) error {
 	msg := types.ChatMessage{ID: id}
 
-	_, err := e.db.NewDelete().Model(&msg).WherePK().ForceDelete().Exec(ctx)
+	_, err := self.db.NewDelete().Model(&msg).WherePK().ForceDelete().Exec(ctx)
 	if err != nil {
 		return err
 	}

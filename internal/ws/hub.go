@@ -1,7 +1,7 @@
 package ws
 
 import (
-	"app/internal/shared/types"
+	"app/internal/types"
 	"context"
 	"fmt"
 )
@@ -29,30 +29,30 @@ func StartHub(store types.MessagesStore) *Hub {
 	return hub
 }
 
-func (h *Hub) Add(e Event) {
-	h.events <- e
+func (self *Hub) Add(e Event) {
+	self.events <- e
 }
 
-func (h *Hub) send(userId string, e Event) {
-	u, ok := h.clients[userId]
+func (self *Hub) send(userId string, e Event) {
+	u, ok := self.clients[userId]
 	if ok {
 		// FIXME: could be potentially closed
 		u.events <- e
 	}
 }
 
-func (h *Hub) listen() {
-	for e := range h.events {
+func (self *Hub) listen() {
+	for e := range self.events {
 		switch e.Type {
 		case Connected:
-			h.clients[e.Meta.Sender] = HubClient{events: e.Meta.Chan}
+			self.clients[e.Meta.Sender] = HubClient{events: e.Meta.Chan}
 			fmt.Printf("client %v connected\n", e.Meta.Sender)
 		case Disconnected:
-			delete(h.clients, e.Meta.Sender)
+			delete(self.clients, e.Meta.Sender)
 			fmt.Printf("client %v disconnected\n", e.Meta.Sender)
 		case ChatMessage:
-			h.store.Add(context.TODO(), string(e.Payload))
-			h.send(e.Meta.Sender, e)
+			self.store.Add(context.TODO(), string(e.Payload))
+			self.send(e.Meta.Sender, e)
 		default:
 			fmt.Printf("client %v sent unkown event '%v': %v\n", e.Meta.Sender, e.Type, e.Payload)
 		}

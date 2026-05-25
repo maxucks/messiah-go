@@ -6,6 +6,12 @@ import (
 	"github.com/google/uuid"
 )
 
+type GetError string
+
+const (
+	ErrGetExample = GetError("Some get error")
+)
+
 type MessagesStore interface {
 	Get(ctx context.Context) ([]ChatMessage, error)
 	Add(ctx context.Context, content string) error
