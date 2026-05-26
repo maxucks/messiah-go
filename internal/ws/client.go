@@ -12,10 +12,10 @@ import (
 type WSClient struct {
 	id string
 
-	conn           *websocket.Conn
-	hub            *Hub
-	incomingEvents <-chan Event
-	closeSignal    chan string
+	conn            *websocket.Conn
+	hub             *Hub
+	outcomingEvents <-chan OutcomingEvent
+	closeSignal     chan string
 }
 
 func NewClient(conn *websocket.Conn, hub *Hub, id string) *WSClient {
@@ -28,7 +28,7 @@ func NewClient(conn *websocket.Conn, hub *Hub, id string) *WSClient {
 }
 
 func (self *WSClient) Listen() {
-	self.incomingEvents = self.hub.Register(self.id)
+	self.outcomingEvents = self.hub.Register(self.id)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -41,14 +41,14 @@ func (self *WSClient) Listen() {
 
 func (self *WSClient) reader(ctx context.Context) {
 	for {
-		var e Event
+		var e IncomingEvent
 
 		if err := wsjson.Read(ctx, self.conn, &e); err != nil {
 			self.closeSignal <- fmt.Sprintf("socket read failed: %s", err)
 			return
 		}
 
-		self.hub.Add(self.wrap(e))
+		self.hub.Add(self.enrich(e))
 	}
 }
 
@@ -57,7 +57,7 @@ func (self *WSClient) writer(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case e, ok := <-self.incomingEvents:
+		case e, ok := <-self.outcomingEvents:
 			if !ok {
 				self.closeSignal <- "incoming events chan closed"
 				return
@@ -89,9 +89,7 @@ func (self *WSClient) close() {
 	log.Printf("socket %v closed", self.id)
 }
 
-func (self *WSClient) wrap(e Event) ClientEvent {
-	return ClientEvent{
-		ID:    self.id,
-		Event: e,
-	}
+func (self *WSClient) enrich(e IncomingEvent) IncomingEvent {
+	e.Sender = self.id
+	return e
 }

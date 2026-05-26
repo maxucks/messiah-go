@@ -3,6 +3,7 @@ package main
 import (
 	"app/internal/app"
 	"app/internal/store"
+	"app/internal/types"
 	"app/internal/ws"
 	"database/sql"
 	"fmt"
@@ -49,6 +50,11 @@ func open(dsn string) (*bun.DB, error) {
 	return db, nil
 }
 
+type infrastructure struct {
+	chats    types.ChatsStore
+	messages types.MessagesStore
+}
+
 func main() {
 	cfg := loadConfig()
 	log.Println(cfg)
@@ -58,13 +64,16 @@ func main() {
 		log.Fatal(err)
 	}
 
-	msgStore := store.NewMessages(db)
+	infra := infrastructure{
+		messages: store.NewMessages(db),
+		chats:    store.NewChats(),
+	}
 
 	e := echo.New()
 	e.Use(middleware.Recover(), middleware.RequestLogger())
 
-	hub := ws.StartHub(msgStore)
-	app.SetupRouter(e, hub, msgStore)
+	hub := ws.StartHub(infra.messages, infra.chats)
+	app.SetupRouter(e, hub, infra.messages)
 
 	addr := fmt.Sprintf(":%v", cfg.Port)
 

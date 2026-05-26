@@ -2,13 +2,13 @@ package app
 
 import (
 	"app/internal/app/controllers"
-	"app/internal/store"
+	"app/internal/types"
 	"app/internal/ws"
 
 	"github.com/labstack/echo/v5"
 )
 
-func SetupRouter(e *echo.Echo, hub *ws.Hub, msgStore *store.Messages) {
+func SetupRouter(e *echo.Echo, hub *ws.Hub, msgStore types.MessagesStore) {
 	upgrader := NewUpgrader(hub)
 
 	e.Any("/upgrade", upgrader.Upgrade)

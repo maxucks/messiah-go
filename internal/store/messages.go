@@ -8,26 +8,26 @@ import (
 	"github.com/uptrace/bun"
 )
 
-type Messages struct {
+type messages struct {
 	db *bun.DB
 }
 
-func NewMessages(db *bun.DB) *Messages {
-	return &Messages{db}
+func NewMessages(db *bun.DB) *messages {
+	return &messages{db}
 }
 
-func (self *Messages) Get(ctx context.Context) ([]types.ChatMessage, error) {
-	var messages []types.ChatMessage
+func (self *messages) Get(ctx context.Context) ([]types.ChatMessage, error) {
+	var res []types.ChatMessage
 
-	err := self.db.NewSelect().Model(&messages).Scan(ctx)
+	err := self.db.NewSelect().Model(&res).Scan(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return messages, nil
+	return res, nil
 }
 
-func (self *Messages) Add(ctx context.Context, content string) error {
+func (self *messages) Add(ctx context.Context, content string) error {
 	msg := types.ChatMessage{Content: content}
 
 	_, err := self.db.NewInsert().Model(&msg).Exec(ctx)
@@ -38,7 +38,7 @@ func (self *Messages) Add(ctx context.Context, content string) error {
 	return nil
 }
 
-func (self *Messages) Edit(ctx context.Context, id uuid.UUID, content string) error {
+func (self *messages) Edit(ctx context.Context, id uuid.UUID, content string) error {
 	msg := types.ChatMessage{
 		ID:      id,
 		Content: content,
@@ -52,7 +52,7 @@ func (self *Messages) Edit(ctx context.Context, id uuid.UUID, content string) er
 	return nil
 }
 
-func (self *Messages) Delete(ctx context.Context, id uuid.UUID) error {
+func (self *messages) Delete(ctx context.Context, id uuid.UUID) error {
 	msg := types.ChatMessage{ID: id}
 
 	_, err := self.db.NewDelete().Model(&msg).WherePK().ForceDelete().Exec(ctx)

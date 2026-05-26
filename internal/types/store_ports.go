@@ -18,3 +18,7 @@ type MessagesStore interface {
 	Edit(ctx context.Context, id uuid.UUID, content string) error
 	Delete(ctx context.Context, id uuid.UUID) error
 }
+
+type ChatsStore interface {
+	Members(ctx context.Context, id string) ([]string, error)
+}
