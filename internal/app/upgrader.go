@@ -3,7 +3,6 @@ package app
 import (
 	res "app/internal/shared"
 	"app/internal/ws"
-	"context"
 	"net/http"
 
 	"github.com/coder/websocket"
@@ -32,9 +31,7 @@ func (self *WSUpgrader) Upgrade(c *echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, res.ErrorResponse(err.Error()))
 	}
 
-	ctx := context.Background()
-	client := ws.NewClient(conn, self.hub, userId)
-	client.Listen(ctx)
+	ws.NewClient(conn, self.hub, userId).Listen()
 
 	return nil
 }

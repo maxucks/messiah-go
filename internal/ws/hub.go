@@ -2,26 +2,38 @@ package ws
 
 import (
 	"app/internal/types"
-	"context"
 	"fmt"
+	"log"
+	"sync"
 )
 
 type HubClient struct {
-	events chan<- Event
+	id     string
+	events chan Event
+}
+
+func newClient(id string) HubClient {
+	return HubClient{
+		id:     id,
+		events: make(chan Event, 1000),
+	}
 }
 
 type Hub struct {
 	store types.MessagesStore
 
-	events  chan Event
+	events  chan ClientEvent
 	clients map[string]HubClient
+
+	mux sync.RWMutex
 }
 
 func StartHub(store types.MessagesStore) *Hub {
 	hub := &Hub{
-		events:  make(chan Event, 1000),
+		events:  make(chan ClientEvent, 1000),
 		clients: make(map[string]HubClient, 0),
 		store:   store,
+		mux:     sync.RWMutex{},
 	}
 
 	go hub.listen()
@@ -29,32 +41,54 @@ func StartHub(store types.MessagesStore) *Hub {
 	return hub
 }
 
-func (self *Hub) Add(e Event) {
+func (self *Hub) Register(id string) <-chan Event {
+	self.mux.Lock()
+	defer self.mux.Unlock()
+
+	client := newClient(id)
+	self.clients[id] = client
+	log.Printf("client(id=%v) connected\n", id)
+
+	return client.events
+}
+
+func (self *Hub) Unregister(id string) error {
+	self.mux.Lock()
+	defer self.mux.Unlock()
+
+	client, ok := self.clients[id]
+	if !ok {
+		return fmt.Errorf("no client(id=%v) found", id)
+	}
+	defer close(client.events)
+
+	delete(self.clients, id)
+	log.Printf("client(id=%v) disconnected\n", id)
+
+	return nil
+}
+
+func (self *Hub) Add(e ClientEvent) {
 	self.events <- e
 }
 
-func (self *Hub) send(userId string, e Event) {
-	u, ok := self.clients[userId]
+func (self *Hub) send(id string, e Event) {
+	self.mux.RLock()
+	defer self.mux.RUnlock()
+
+	client, ok := self.clients[id]
 	if ok {
-		// FIXME: could be potentially closed
-		u.events <- e
+		client.events <- e
 	}
 }
 
 func (self *Hub) listen() {
 	for e := range self.events {
 		switch e.Type {
-		case Connected:
-			self.clients[e.Meta.Sender] = HubClient{events: e.Meta.Chan}
-			fmt.Printf("client %v connected\n", e.Meta.Sender)
-		case Disconnected:
-			delete(self.clients, e.Meta.Sender)
-			fmt.Printf("client %v disconnected\n", e.Meta.Sender)
 		case ChatMessage:
-			self.store.Add(context.TODO(), string(e.Payload))
-			self.send(e.Meta.Sender, e)
+			self.send(e.ID, e.Event)
 		default:
-			fmt.Printf("client %v sent unkown event '%v': %v\n", e.Meta.Sender, e.Type, e.Payload)
+			fmt.Printf("client %v sent unkown event '%v': %v\n", e.ID, e.Type, e.Payload)
 		}
 	}
 }

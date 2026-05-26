@@ -11,6 +11,11 @@ tasks:
     desc: Run the app locally
     cmds:
       - go run ./cmd
+  
+  run:containers:
+    desc: Run the docker-compose
+    cmds:
+      - docker compose up --build
 
   migration:create:
     desc: Create new migration

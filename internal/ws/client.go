@@ -2,6 +2,7 @@ package ws
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/coder/websocket"
@@ -11,79 +12,86 @@ import (
 type WSClient struct {
 	id string
 
-	conn *websocket.Conn
-	hub  *Hub
-
-	events chan Event
+	conn           *websocket.Conn
+	hub            *Hub
+	incomingEvents <-chan Event
+	closeSignal    chan string
 }
 
 func NewClient(conn *websocket.Conn, hub *Hub, id string) *WSClient {
 	return &WSClient{
-		id:     id,
-		conn:   conn,
-		hub:    hub,
-		events: make(chan Event, 10),
+		id:          id,
+		conn:        conn,
+		hub:         hub,
+		closeSignal: make(chan string),
 	}
 }
 
-func (self *WSClient) Listen(ctx context.Context) {
-	meta := self.commonMeta()
-	meta.Chan = self.events
+func (self *WSClient) Listen() {
+	self.incomingEvents = self.hub.Register(self.id)
 
-	self.hub.Add(Event{
-		Meta: meta,
-		Type: Connected,
-	})
+	ctx, cancel := context.WithCancel(context.Background())
 
-	go self.readLoop(ctx)
-	go self.writeLoop(ctx)
+	go self.closer(cancel)
+	go self.reader(ctx)
+	go self.writer(ctx)
+
+	log.Printf("socket %v opened", self.id)
 }
 
-func (self *WSClient) readLoop(ctx context.Context) {
-	defer self.close()
-
+func (self *WSClient) reader(ctx context.Context) {
 	for {
 		var e Event
+
 		if err := wsjson.Read(ctx, self.conn, &e); err != nil {
-			log.Printf("[WSClient] failed to read message: %e\n", err)
+			self.closeSignal <- fmt.Sprintf("socket read failed: %s", err)
 			return
 		}
-		e.Meta = self.commonMeta()
-		self.hub.Add(e)
+
+		self.hub.Add(self.wrap(e))
 	}
 }
 
-func (self *WSClient) writeLoop(ctx context.Context) {
+func (self *WSClient) writer(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case e, ok := <-self.events:
+		case e, ok := <-self.incomingEvents:
 			if !ok {
-				log.Println("Write end")
+				self.closeSignal <- "incoming events chan closed"
 				return
 			}
+
 			if err := wsjson.Write(ctx, self.conn, e); err != nil {
-				log.Printf("[WSClient] failed to send message: %e\n", err)
+				self.closeSignal <- fmt.Sprintf("socket write failed: %s", err)
 				return
 			}
 		}
 	}
+}
 
+func (self *WSClient) closer(cancel func()) {
+	defer self.close()
+	defer cancel()
+
+	reason := <-self.closeSignal
+	log.Printf("closing socket %v with reason: %s", self.id, reason)
 }
 
 func (self *WSClient) close() {
-	log.Println("Closed")
-	self.hub.Add(Event{
-		Meta: self.commonMeta(),
-		Type: Disconnected,
-	})
-	close(self.events)
-	self.conn.Close(websocket.StatusNormalClosure, "done")
+	defer self.conn.Close(websocket.StatusNormalClosure, "done")
+
+	if err := self.hub.Unregister(self.id); err != nil {
+		log.Printf("unregister failed: %s\n", err)
+	}
+
+	log.Printf("socket %v closed", self.id)
 }
 
-func (self *WSClient) commonMeta() EventMeta {
-	return EventMeta{
-		Sender: self.id,
+func (self *WSClient) wrap(e Event) ClientEvent {
+	return ClientEvent{
+		ID:    self.id,
+		Event: e,
 	}
 }
