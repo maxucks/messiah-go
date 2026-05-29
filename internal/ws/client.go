@@ -7,10 +7,12 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
+	"github.com/google/uuid"
 )
 
 type WSClient struct {
-	id string
+	clientId uuid.UUID
+	userId   string
 
 	conn            *websocket.Conn
 	hub             *Hub
@@ -18,9 +20,10 @@ type WSClient struct {
 	closeSignal     chan string
 }
 
-func NewClient(conn *websocket.Conn, hub *Hub, id string) *WSClient {
+func NewClient(conn *websocket.Conn, hub *Hub, userId string) *WSClient {
 	return &WSClient{
-		id:          id,
+		clientId:    uuid.New(),
+		userId:      userId,
 		conn:        conn,
 		hub:         hub,
 		closeSignal: make(chan string),
@@ -28,7 +31,7 @@ func NewClient(conn *websocket.Conn, hub *Hub, id string) *WSClient {
 }
 
 func (self *WSClient) Listen() {
-	self.outcomingEvents = self.hub.Register(self.id)
+	self.outcomingEvents = self.hub.Register(self.clientId, self.userId)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -36,7 +39,7 @@ func (self *WSClient) Listen() {
 	go self.reader(ctx)
 	go self.writer(ctx)
 
-	log.Printf("socket %v opened", self.id)
+	log.Printf("socket %v opened", self.userId)
 }
 
 func (self *WSClient) reader(ctx context.Context) {
@@ -76,20 +79,23 @@ func (self *WSClient) closer(cancel func()) {
 	defer cancel()
 
 	reason := <-self.closeSignal
-	log.Printf("closing socket %v with reason: %s", self.id, reason)
+	log.Printf("closing socket %v with reason: %s", self.userId, reason)
 }
 
 func (self *WSClient) close() {
 	defer self.conn.Close(websocket.StatusNormalClosure, "done")
 
-	if err := self.hub.Unregister(self.id); err != nil {
+	if err := self.hub.Unregister(self.clientId, self.userId); err != nil {
 		log.Printf("unregister failed: %s\n", err)
 	}
 
-	log.Printf("socket %v closed", self.id)
+	log.Printf("socket %v closed", self.userId)
 }
 
 func (self *WSClient) enrich(e IncomingEvent) IncomingEvent {
-	e.Sender = self.id
+	e.Sender = Sender{
+		ClientId: self.clientId,
+		UserId:   self.userId,
+	}
 	return e
 }

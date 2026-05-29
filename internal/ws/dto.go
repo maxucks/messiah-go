@@ -1,16 +1,25 @@
 package ws
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/google/uuid"
+)
 
 type EventType string
 
 const (
-	ChatMessageEvent   EventType = "chat_message"
-	DirectMessageEvent EventType = "direct_message"
+	ChatMessageEvent   EventType = "chat.message"
+	DirectMessageEvent EventType = "direct.message"
 )
 
+type Sender struct {
+	UserId   string    `json:"-"`
+	ClientId uuid.UUID `json:"-"`
+}
+
 type IncomingEvent struct {
-	Sender  string          `json:"-"`
+	Sender  Sender          `json:"-"`
 	Type    EventType       `json:"type"`
 	Payload json.RawMessage `json:"payload"`
 }
@@ -28,6 +37,6 @@ type DirectMessage struct {
 
 type ChatMessage struct {
 	Sender string `json:"sender,omitempty"`
-	ChatID string `json:"chat_id"`
+	ChatID string `json:"chatId"`
 	Text   string `json:"text"`
 }
